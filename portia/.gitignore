@@ -1,0 +1,7 @@
+# Portia Local Dev Gitignore
+.env
+__pycache__/
+*.pyc
+.DS_Store
+venv/
+env/

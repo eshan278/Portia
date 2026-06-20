@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portia Assistant — MVP v0.1</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            color: #f1f5f9;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden">
+
+    <!-- Header -->
+    <header class="border-b border-slate-800 bg-slate-900 px-6 py-4 flex items-center justify-between z-10 shrink-0">
+        <div class="flex items-center space-x-3">
+            <div class="relative">
+                <span class="block w-3.5 h-3.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                <span class="absolute top-0 left-0 block w-3.5 h-3.5 bg-emerald-500 rounded-full animate-ping opacity-75"></span>
+            </div>
+            <div>
+                <h1 class="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+                    Portia <span class="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded font-mono">v0.1 MVP</span>
+                </h1>
+                <p class="text-xs text-slate-400">Personal Voice AI Assistant</p>
+            </div>
+        </div>
+        
+        <!-- Quick Control toggles -->
+        <div class="flex items-center space-x-4">
+            <button id="muteBtn" class="flex items-center space-x-2 bg-slate-800 hover:bg-slate-700 transition text-slate-300 hover:text-white px-3 py-1.5 rounded-lg text-sm font-medium">
+                <span id="muteIcon" class="mr-1">🔊</span>
+                <span id="muteText">Voice Output: On</span>
+            </button>
+            <div class="flex items-center bg-slate-800 px-3 py-1.5 rounded-lg text-sm text-slate-300 font-medium space-x-2">
+                <label for="autoSendToggle" class="cursor-pointer select-none">Auto-send Transcription</label>
+                <input type="checkbox" id="autoSendToggle" class="w-4 h-4 rounded text-indigo-600 bg-slate-700 border-slate-600 focus:ring-indigo-500 cursor-pointer">
+            </div>
+        </div>
+    </header>
+
+    <!-- Compatibility Alert Banner (Hidden by default) -->
+    <div id="compatWarning" class="hidden bg-amber-900/40 border-b border-amber-800 text-amber-200 px-6 py-3 text-sm flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+            <span>⚠️</span>
+            <span id="compatMessage">ভয়েস ফিচার শুধু Chrome/Edge-এ কাজ করবে (Web Speech API not supported)</span>
+        </div>
+        <button onclick="document.getElementById('compatWarning').classList.add('hidden')" class="text-amber-400 hover:text-white text-lg font-bold">&times;</button>
+    </div>
+
+    <!-- Main Message Area -->
+    <main class="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar bg-slate-950" id="chatContainer">
+        
+        <!-- Welcome Message -->
+        <div class="max-w-3xl mx-auto flex space-x-4 bg-slate-900/50 border border-slate-800/80 p-6 rounded-2xl">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center font-bold text-white shadow-lg shadow-indigo-500/10 shrink-0">
+                P
+            </div>
+            <div class="space-y-2">
+                <h2 class="text-lg font-semibold text-white">Hi, I'm Portia</h2>
+                <p class="text-slate-300 text-sm leading-relaxed">
+                    I am your fully voice-enabled personal AI assistant. You can speak to me by clicking the microphone button or type below. I will reply to you and repeat my answers aloud. Let's talk!
+                </p>
+                <div class="pt-2 text-xs text-indigo-400 flex flex-wrap gap-2">
+                    <span class="bg-indigo-950/60 border border-indigo-900/60 rounded-full px-3 py-1">🎙️ Web Speech Input</span>
+                    <span class="bg-indigo-950/60 border border-indigo-900/60 rounded-full px-3 py-1">🗣️ Voice Output Synthesis</span>
+                    <span class="bg-indigo-950/60 border border-indigo-900/60 rounded-full px-3 py-1">⚡ Powered by Gemini</span>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Typing Indicator / Status bar -->
+    <div class="max-w-4xl mx-auto w-full px-6 py-1 text-xs text-slate-500 flex justify-between items-center bg-slate-950">
+        <span id="statusText">Portia ready</span>
+        <span id="audioStatusText" class="font-mono"></span>
+    </div>
+
+    <!-- Input Section -->
+    <footer class="p-6 bg-slate-900 border-t border-slate-800 shrink-0">
+        <div class="max-w-4xl mx-auto">
+            <form id="chatForm" class="flex items-center space-x-3">
+                
+                <!-- Mic Button -->
+                <button type="button" id="micBtn" class="w-14 h-14 rounded-xl flex items-center justify-center transition-all bg-slate-800 hover:bg-slate-700 text-white shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-500" title="Voice Input">
+                    <span id="micIcon" class="text-2xl">🎤</span>
+                </button>
+
+                <!-- TextInput Container -->
+                <div class="flex-1 relative flex items-center bg-slate-950 border border-slate-800 rounded-xl focus-within:border-indigo-500/80 transition-all">
+                    <input type="text" id="userInput" placeholder="Type or click the microphone to speak..." required autocomplete="off"
+                           class="w-full bg-transparent px-5 py-4 focus:outline-none text-white placeholder-slate-500 text-sm md:text-base">
+                    
+                    <button type="submit" id="sendBtn" class="mr-3 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white p-2.5 rounded-lg transition-all focus:outline-none">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                            <line x1="22" y1="2" x2="11" y2="13"></line>
+                            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                        </svg>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </footer>
+
+    <!-- Browser Speech API Script Logic -->
+    <script>
+        // DOM Elements
+        const chatContainer = document.getElementById('chatContainer');
+        const chatForm = document.getElementById('chatForm');
+        const userInput = document.getElementById('userInput');
+        const micBtn = document.getElementById('micBtn');
+        const micIcon = document.getElementById('micIcon');
+        const sendBtn = document.getElementById('sendBtn');
+        const muteBtn = document.getElementById('muteBtn');
+        const muteIcon = document.getElementById('muteIcon');
+        const muteText = document.getElementById('muteText');
+        const autoSendToggle = document.getElementById('autoSendToggle');
+        const compatWarning = document.getElementById('compatWarning');
+        const statusText = document.getElementById('statusText');
+        const audioStatusText = document.getElementById('audioStatusText');
+
+        // App States
+        let history = []; // Max 20 messages tracking: [{ role: 'user' | 'model', parts: [ { text: '...' } ] }]
+        let isMuted = false;
+        let isListening = false;
+        let recognition = null;
+        let audioPlayQueue = [];
+        let currentlySpeakingRes = null;
+
+        // Initialize Web Speech Recognition
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            compatWarning.classList.remove('hidden');
+            micBtn.classList.add('bg-slate-800/40', 'opacity-50', 'cursor-not-allowed');
+            micBtn.disabled = true;
+            micIcon.innerText = '🔇';
+        } else {
+            recognition = new SpeechRecognition();
+            recognition.continuous = false;
+            recognition.interimResults = true;
+            recognition.lang = 'en-US'; // Default language
+
+            recognition.onstart = () => {
+                isListening = true;
+                micBtn.classList.replace('bg-slate-800', 'bg-red-600');
+                micBtn.classList.replace('hover:bg-slate-700', 'hover:bg-red-500');
+                micBtn.classList.add('animate-pulse');
+                micIcon.innerText = '🔴';
+                statusText.innerText = "Listening...";
+                userInput.placeholder = "Listening... Speak clearly.";
+            };
+
+            recognition.onresult = (event) => {
+                const transcript = Array.from(event.results)
+                    .map(result => result[0].transcript)
+                    .join('');
+                userInput.value = transcript;
+            };
+
+            recognition.onerror = (event) => {
+                console.error("Speech Recognition Error:", event.error);
+                statusText.innerText = "Speech Error: " + event.error;
+                stopListeningState();
+            };
+
+            recognition.onend = () => {
+                stopListeningState();
+                statusText.innerText = "Portia done listening";
+                if (autoSendToggle.checked && userInput.value.trim() !== '') {
+                    sendFormMessage();
+                }
+            };
+        }
+
+        function stopListeningState() {
+            isListening = false;
+            micBtn.classList.replace('bg-red-600', 'bg-slate-800');
+            micBtn.classList.replace('hover:bg-red-500', 'hover:bg-slate-700');
+            micBtn.classList.remove('animate-pulse');
+            micIcon.innerText = '🎤';
+            userInput.placeholder = "Type or click the microphone to speak...";
+        }
+
+        // Toggle Mic
+        micBtn.addEventListener('click', () => {
+            if (!recognition) return;
+            if (isListening) {
+                recognition.stop();
+            } else {
+                // Stop any reading voice output
+                window.speechSynthesis.cancel();
+                userInput.value = '';
+                try {
+                    recognition.start();
+                } catch (e) {
+                    console.error("Failed to start Speech Recognition:", e);
+                }
+            }
+        });
+
+        // Speech Output Settings Toggles
+        muteBtn.addEventListener('click', () => {
+            isMuted = !isMuted;
+            if (isMuted) {
+                window.speechSynthesis.cancel();
+                muteIcon.innerText = '🔇';
+                muteText.innerText = "Voice Output: Off";
+                audioStatusText.innerText = "Muted";
+            } else {
+                muteIcon.innerText = '🔊';
+                muteText.innerText = "Voice Output: On";
+                audioStatusText.innerText = "";
+            }
+        });
+
+        // Synthesis Speech Function
+        function speakResponse(text) {
+            if (isMuted || !window.speechSynthesis) return;
+
+            // Strip some markdown before TTS
+            const cleanText = text
+                .replace(/[\*\#\_\~`>\[\]\(\)]/g, '')  // removes markdown symbols
+                .replace(/\(.*?\)/g, '')               // removes parenthesis text (actions)
+                .trim();
+
+            window.speechSynthesis.cancel(); // Stop playing anything else
+            
+            const utterance = new SpeechSynthesisUtterance(cleanText);
+            
+            // Adjust speech characteristics nicely
+            utterance.rate = 1.05;
+            utterance.pitch = 1.0;
+            
+            // Try to find a nice English voice, if available
+            const voices = window.speechSynthesis.getVoices();
+            const preferableVoice = voices.find(v => v.name.includes("Google US English") || v.name.includes("Microsoft Zira") || v.lang === "en-US");
+            if (preferableVoice) {
+                utterance.voice = preferableVoice;
+            }
+
+            utterance.onstart = () => {
+                audioStatusText.innerText = "🗣️ Speaking...";
+            };
+            utterance.onend = () => {
+                audioStatusText.innerText = "";
+            };
+            utterance.onerror = (e) => {
+                console.error("Speech Synthesis Error:", e);
+                audioStatusText.innerText = "";
+            };
+
+            window.speechSynthesis.speak(utterance);
+        }
+
+        // Voice List Event
+        if (window.speechSynthesis) {
+            window.speechSynthesis.onvoiceschanged = () => {
+                // Preload voices
+                window.speechSynthesis.getVoices();
+            };
+        }
+
+        // Append a message directly to chat log
+        function appendMessage(sender, text, isError = false) {
+            const messageRow = document.createElement('div');
+            messageRow.className = "flex max-w-3xl mx-auto gap-4 " + (sender === 'user' ? 'justify-end' : 'justify-start');
+
+            const isUser = sender === 'user';
+            
+            const avatar = document.createElement('div');
+            avatar.className = `w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm shadow-md shrink-0 ${isUser ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-indigo-400'}`;
+            avatar.innerText = isUser ? 'U' : 'P';
+            
+            const messageBody = document.createElement('div');
+            messageBody.className = `p-4 rounded-2xl max-w-[85%] text-sm leading-relaxed ${
+                isUser 
+                ? 'bg-indigo-600/20 border border-indigo-500/20 text-indigo-100 rounded-tr-none' 
+                : isError
+                  ? 'bg-red-950/40 border border-red-900/50 text-red-200 rounded-tl-none'
+                  : 'bg-slate-900 border border-slate-800 text-slate-100 rounded-tl-none'
+            }`;
+
+            // Basic safety & paragraph format mapping
+            const escapedText = text
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/\n\n/g, '</p><p class="mt-2 text-slate-300">')
+                .replace(/\n/g, '<br>');
+
+            messageBody.innerHTML = `<p class="${isUser ? 'text-indigo-100' : 'text-slate-100'}">${escapedText}</p>`;
+
+            // Audio repeat button for AI messages
+            if (!isUser && !isError && window.speechSynthesis) {
+                const repeatBtn = document.createElement('button');
+                repeatBtn.className = "text-xs mt-2 text-slate-500 hover:text-indigo-400 font-medium transition flex items-center gap-1";
+                repeatBtn.innerHTML = "🔊 Read Aloud";
+                repeatBtn.onclick = () => speakResponse(text);
+                messageBody.appendChild(repeatBtn);
+            }
+
+            if (isUser) {
+                messageRow.appendChild(messageBody);
+                messageRow.appendChild(avatar);
+            } else {
+                messageRow.appendChild(avatar);
+                messageRow.appendChild(messageBody);
+            }
+
+            chatContainer.appendChild(messageRow);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        // Typing Indicator loader element
+        let typingIndicator = null;
+        function showLoading() {
+            if (typingIndicator) return;
+            
+            typingIndicator = document.createElement('div');
+            typingIndicator.className = "flex max-w-3xl mx-auto gap-4 justify-start items-center";
+            typingIndicator.innerHTML = `
+                <div class="w-9 h-9 rounded-xl bg-slate-800 flex items-center justify-center font-bold text-sm text-indigo-400 shrink-0">P</div>
+                <div class="p-4 rounded-2xl bg-slate-900 border border-slate-800 rounded-tl-none text-slate-400 text-sm flex items-center space-x-2">
+                    <span>Portia is thinking</span>
+                    <span class="flex space-x-1">
+                        <span class="w-1.5 h-1.5 bg-slate-500 rounded-full animate-bounce" style="animation-delay: 0ms"></span>
+                        <span class="w-1.5 h-1.5 bg-slate-500 rounded-full animate-bounce" style="animation-delay: 150ms"></span>
+                        <span class="w-1.5 h-1.5 bg-slate-500 rounded-full animate-bounce" style="animation-delay: 300ms"></span>
+                    </span>
+                </div>
+            `;
+            chatContainer.appendChild(typingIndicator);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+            statusText.innerText = "Portia is thinking...";
+            setFormDisabled(true);
+        }
+
+        function hideLoading() {
+            if (typingIndicator) {
+                typingIndicator.remove();
+                typingIndicator = null;
+            }
+            statusText.innerText = "Portia ready";
+            setFormDisabled(false);
+        }
+
+        function setFormDisabled(disabled) {
+            userInput.disabled = disabled;
+            sendBtn.disabled = disabled;
+            if (disabled) {
+                sendBtn.classList.add('opacity-50', 'pointer-events-none');
+            } else {
+                sendBtn.classList.remove('opacity-50', 'pointer-events-none');
+            }
+        }
+
+        // Direct fetch submission trigger
+        async function sendFormMessage() {
+            const text = userInput.value.trim();
+            if (text === '') return;
+
+            userInput.value = '';
+            
+            // Add user message to UI
+            appendMessage('user', text);
+
+            // Cancel current speech output
+            window.speechSynthesis.cancel();
+
+            // Run Loading
+            showLoading();
+
+            try {
+                // Call local /chat API of python server (or fallback in dev app environment) We're using relative paths.
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        message: text,
+                        history: history
+                    })
+                });
+
+                if (!response.ok) {
+                    const errData = await response.json().catch(() => ({ detail: "Server responded with status " + response.status }));
+                    throw new Error(errData.detail || "HTTP error " + response.status);
+                }
+
+                const data = await response.json();
+                hideLoading();
+
+                if (data.error) {
+                    appendMessage('ai', data.error, true);
+                    speakResponse("Error: " + data.error);
+                } else {
+                    const reply = data.reply;
+                    appendMessage('ai', reply);
+                    
+                    // Maintain max 20 messages in history:
+                    // Frontend structure keeps track:
+                    history.push({ role: 'user', parts: [ { text: text } ] });
+                    history.push({ role: 'model', parts: [ { text: reply } ] });
+                    if (history.length > 20) {
+                        history = history.slice(-20);
+                    }
+
+                    // Speak the response aloud!
+                    speakResponse(reply);
+                }
+
+            } catch (error) {
+                hideLoading();
+                appendMessage('ai', `Could not reach Portia backend. Error details: ${error.message}`, true);
+                speakResponse("Connection failed");
+            }
+        }
+
+        // Form Submit Handler
+        chatForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            sendFormMessage();
+        });
+    </script>
+</body>
+</html>

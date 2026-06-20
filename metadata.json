@@ -1,0 +1,10 @@
+{
+  "name": "Portia",
+  "description": "Portia is a minimal, elegant personal AI assistant featuring text chat, voice transcription, and voice output powered by Gemini.",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
